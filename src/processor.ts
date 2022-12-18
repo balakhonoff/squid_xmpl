@@ -20,7 +20,7 @@ const processor = new EvmBatchProcessor()
   .setBlockRange({ from: 15175243 })
   .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
     filter: [[
-      events.Approval.topic,
+      //events.Approval.topic,
       events.Transfer.topic,
    ]],
     data: {
