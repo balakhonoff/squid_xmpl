@@ -6,22 +6,22 @@ import { Gravatar } from "./model/generated/gravatar.model";
 
 const processor = new EvmBatchProcessor()
   .setDataSource({
-    // uncomment and set RPC_ENDPOINT to enable contract state queries. 
-    // Both https and wss endpoints are supported. 
+    // uncomment and set RPC_ENDPOINT to enable contract state queries.
+    // Both https and wss endpoints are supported.
     // chain: process.env.RPC_ENDPOINT,
 
-    // Change the Archive endpoints for run the squid 
+    // Change the Archive endpoints for run the squid
     // against the other EVM networks
     // For a full list of supported networks and config options
     // see https://docs.subsquid.io/develop-a-squid/evm-processor/configuration/
 
     archive: 'https://eth.archive.subsquid.io',
   })
-  .setBlockRange({ from: 6175243 })
-  .addLog('0x2E645469f354BB4F5c8a05B3b30A929361cf77eC', {
+  .setBlockRange({ from: 15175243 })
+  .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
     filter: [[
-      events.NewGravatar.topic,
-      events.UpdatedGravatar.topic,
+      events.Approval.topic,
+      events.Transfer.topic,
    ]],
     data: {
         evmLog: {
@@ -39,20 +39,19 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         if(e.kind !== "evmLog") {
           continue
         }
-        const { id, owner, displayName, imageUrl } = extractData(e.evmLog)
+        const { id, owner} = extractData(e.evmLog)
         gravatars.set(id.toHexString(), new Gravatar({
           id: id.toHexString(),
           owner: decodeHex(owner),
-          displayName,
-          imageUrl
-        })) 
+
+        }))
       }
     }
     await ctx.store.save([...gravatars.values()])
 });
 
 
-function extractData(evmLog: any): { id: ethers.BigNumber, owner: string, displayName: string, imageUrl: string} {
+function extractData(evmLog: any): { id: ethers.BigNumber, owner: string} {
   if (evmLog.topics[0] === events.NewGravatar.topic) {
     return events.NewGravatar.decode(evmLog)
   }
