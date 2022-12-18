@@ -39,24 +39,33 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         if(e.kind !== "evmLog") {
           continue
         }
-        const { _from, _to, _value} = extractData(e.evmLog)
-        gravatars.set('1', new Gravatar({
-          id: '1',
-          owner: decodeHex(_from),
 
-        }))
+        if (e.evmLog.topics[0] === events.Transfer.topic) {
+          const { _from, _to, _value} = events.Transfer.decode(e.evmLog)
+          gravatars.set('1', new Gravatar({
+            id: '1',
+            owner: decodeHex(_from),
+
+          }))
+        }
+        // if (e.evmLog.topics[0] === events.Approval.topic) {
+        //   const { _owner, _spender, _value} = events.Approval.decode(e.evmLog)
+        // }
+
+         // extractData(e.evmLog)
+
       }
     }
     await ctx.store.save([...gravatars.values()])
 });
 
 
-function extractData(evmLog: any): { _from: string, _to: string, _value: ethers.BigNumber} {
-  if (evmLog.topics[0] === events.Transfer.topic) {
-    return events.Transfer.decode(evmLog)
-  }
-  if (evmLog.topics[0] === events.Approval.topic) {
-    return events.Approval.decode(evmLog)
-  }
-  throw new Error('Unsupported topic')
-}
+// function extractData(evmLog: any): { _from: string, _to: string, _value: ethers.BigNumber} {
+//   if (evmLog.topics[0] === events.Transfer.topic) {
+//     return events.Transfer.decode(evmLog)
+//   }
+//   if (evmLog.topics[0] === events.Approval.topic) {
+//     return events.Approval.decode(evmLog)
+//   }
+//   throw new Error('Unsupported topic')
+// }
