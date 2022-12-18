@@ -11,10 +11,4 @@ export class Gravatar {
 
     @Column_("bytea", {nullable: false})
     owner!: Uint8Array
-
-    @Column_("text", {nullable: false})
-    displayName!: string
-
-    @Column_("text", {nullable: false})
-    imageUrl!: string
 }

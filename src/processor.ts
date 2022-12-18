@@ -1,6 +1,6 @@
 import { TypeormDatabase } from "@subsquid/typeorm-store";
 import {decodeHex, EvmBatchProcessor} from '@subsquid/evm-processor'
-import { events } from "./abi/Gravity";
+import { events } from "./abi/DaiToken";
 import { ethers } from "ethers";
 import { Gravatar } from "./model/generated/gravatar.model";
 
@@ -39,10 +39,10 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         if(e.kind !== "evmLog") {
           continue
         }
-        const { id, owner} = extractData(e.evmLog)
-        gravatars.set(id.toHexString(), new Gravatar({
-          id: id.toHexString(),
-          owner: decodeHex(owner),
+        const { _from, _to, _value} = extractData(e.evmLog)
+        gravatars.set('1', new Gravatar({
+          id: '1',
+          owner: decodeHex(_from),
 
         }))
       }
@@ -51,12 +51,12 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 });
 
 
-function extractData(evmLog: any): { id: ethers.BigNumber, owner: string} {
-  if (evmLog.topics[0] === events.NewGravatar.topic) {
-    return events.NewGravatar.decode(evmLog)
+function extractData(evmLog: any): { _from: string, _to: string, _value: ethers.BigNumber} {
+  if (evmLog.topics[0] === events.Transfer.topic) {
+    return events.Transfer.decode(evmLog)
   }
-  if (evmLog.topics[0] === events.UpdatedGravatar.topic) {
-    return events.UpdatedGravatar.decode(evmLog)
-  }
+  // if (evmLog.topics[0] === events.Approval.topic) {
+  //   return events.Approval.decode(evmLog)
+  // }
   throw new Error('Unsupported topic')
 }
