@@ -55,8 +55,8 @@ function extractData(evmLog: any): { _from: string, _to: string, _value: ethers.
   if (evmLog.topics[0] === events.Transfer.topic) {
     return events.Transfer.decode(evmLog)
   }
-  // if (evmLog.topics[0] === events.Approval.topic) {
-  //   return events.Approval.decode(evmLog)
-  // }
+  if (evmLog.topics[0] === events.Approval.topic) {
+    return events.Approval.decode(evmLog)
+  }
   throw new Error('Unsupported topic')
 }
