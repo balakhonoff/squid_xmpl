@@ -1,4 +1,24 @@
-type Gravatar @entity {
+type Approval @entity {
   id: ID!
-  owner: Bytes!
+  owner: String! # address
+  spender: String! # address
+  value: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type Transfer @entity {
+  id: ID!
+  from: String! # address
+  to: String! # address
+  value: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type Balance @entity {
+  id: ID! # address
+  value: BigInt!
 }
