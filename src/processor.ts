@@ -1,5 +1,5 @@
-import { Store, TypeormDatabase } from "@subsquid/typeorm-store";
-import {BatchHandlerContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock} from '@subsquid/evm-processor'
+import { TypeormDatabase } from "@subsquid/typeorm-store";
+import { EvmBatchProcessor, EvmBlock} from '@subsquid/evm-processor'
 import { events } from "./abi/DaiToken";
 import { Transfer, Approval, Balance } from "./model/generated";
 import { LogItem } from "@subsquid/evm-processor/lib/interfaces/dataSelection";
@@ -35,10 +35,6 @@ const processor = new EvmBatchProcessor()
       },
     } as const,
 });
-
-type Item = BatchProcessorItem<typeof processor>
-type Ctx = BatchHandlerContext<Store, Item>
-
 
 
 processor.run(new TypeormDatabase(), async (ctx) => {
