@@ -1,8 +1,9 @@
 import { TypeormDatabase } from "@subsquid/typeorm-store";
-import {decodeHex, EvmBatchProcessor} from '@subsquid/evm-processor'
+import { EvmBatchProcessor, EvmBlock} from '@subsquid/evm-processor'
 import { events } from "./abi/DaiToken";
-import { ethers } from "ethers";
-import { Gravatar } from "./model/generated/gravatar.model";
+import { Transfer, Approval, Balance } from "./model/generated";
+import { LogItem } from "@subsquid/evm-processor/lib/interfaces/dataSelection";
+import { In } from "typeorm";
 
 const processor = new EvmBatchProcessor()
   .setDataSource({
@@ -20,52 +21,104 @@ const processor = new EvmBatchProcessor()
   .setBlockRange({ from: 15175243 })
   .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
     filter: [[
-      //events.Approval.topic,
+      events.Approval.topic,
       events.Transfer.topic,
    ]],
     data: {
         evmLog: {
             topics: true,
             data: true,
+            transaction: true
         },
+        transaction: {
+          hash: true,
+      },
     } as const,
 });
 
 
 processor.run(new TypeormDatabase(), async (ctx) => {
-    const gravatars: Map<string, Gravatar> = new Map();
-    for (const c of ctx.blocks) {
-      for (const e of c.items) {
-        if(e.kind !== "evmLog") {
+    const approvals: Approval[] = []
+    const transfers: Transfer[] = []
+
+    const balanceUpdates: Map<string, bigint> = new Map()
+
+    for (const block of ctx.blocks) {
+      for (const item of block.items) {
+        if (item.kind !== 'evmLog') {
           continue
         }
-
-        if (e.evmLog.topics[0] === events.Transfer.topic) {
-          const { _from, _to, _value} = events.Transfer.decode(e.evmLog)
-          gravatars.set('1', new Gravatar({
-            id: '1',
-            owner: decodeHex(_from),
-
-          }))
+        if (item.evmLog.topics[0] == events.Approval.topic) {
+          const approval = decodeApproval(block.header, item)
+          approvals.push(approval)
         }
-        // if (e.evmLog.topics[0] === events.Approval.topic) {
-        //   const { _owner, _spender, _value} = events.Approval.decode(e.evmLog)
-        // }
-
-         // extractData(e.evmLog)
-
+        if (item.evmLog.topics[0] == events.Transfer.topic) {
+          const transfer = decodeTransfer(block.header, item)
+          transfers.push(transfer)
+        }
       }
     }
-    await ctx.store.save([...gravatars.values()])
+
+    // collect the state delta for balances from the transfers
+    // in the batch
+    transfers.map((t) => {
+      const balanceFrom = balanceUpdates.get(t.from) ?? 0n
+      balanceUpdates.set(t.from, balanceFrom - t.value)
+
+      const balanceTo = balanceUpdates.get(t.to) ?? 0n
+      balanceUpdates.set(t.to, balanceTo + t.value)
+    })
+
+    const oldBalances = await ctx.store
+        .findBy(Balance, {id: In([...balanceUpdates.keys()])})
+    
+    // join new and old balances
+    oldBalances.forEach((b) => {
+      const balanceUpdate =  balanceUpdates.get(b.id) ?? 0n
+      balanceUpdates.set(b.id, balanceUpdate + b.value)
+    })
+
+    const newBalances = Array.from(balanceUpdates.keys()).map((id) => new Balance({id, value: balanceUpdates.get(id)}))
+    
+    await ctx.store.save(approvals)
+    await ctx.store.save(transfers)
+    await ctx.store.save(newBalances)
+
+    ctx.log.info(`Persisted ${approvals.length} approvals, ${transfers.length} transfers, ${newBalances.length} balance updates`)
 });
 
 
-// function extractData(evmLog: any): { _from: string, _to: string, _value: ethers.BigNumber} {
-//   if (evmLog.topics[0] === events.Transfer.topic) {
-//     return events.Transfer.decode(evmLog)
-//   }
-//   if (evmLog.topics[0] === events.Approval.topic) {
-//     return events.Approval.decode(evmLog)
-//   }
-//   throw new Error('Unsupported topic')
-// }
+function decodeTransfer(
+  block: EvmBlock,
+  item: LogItem<{evmLog: {topics: true; data: true}; transaction: {hash: true}}>
+): Transfer {
+  let event = events.Transfer.decode(item.evmLog)
+  return new Transfer({
+      id: `${item.transaction.hash}-${item.evmLog.index}`,
+      blockNumber: BigInt(block.height),
+      blockTimestamp: BigInt(block.timestamp),
+      transactionHash: item.transaction.hash,
+      from: event._from,
+      to: event._to,
+      value: event._value.toBigInt(),
+  })
+}
+
+
+function decodeApproval(
+  block: EvmBlock,
+  item: LogItem<{evmLog: {topics: true; data: true}; transaction: {hash: true}}>
+): Approval {
+  let event = events.Approval.decode(item.evmLog)
+
+  return new Approval({
+    id: `${item.transaction.hash}-${item.evmLog.index}`,
+    blockNumber: BigInt(block.height),
+    blockTimestamp: BigInt(block.timestamp),
+    transactionHash: item.transaction.hash,
+    owner: event._owner,
+    spender: event._spender,
+    value: event._value.toBigInt(),
+  })
+
+}
