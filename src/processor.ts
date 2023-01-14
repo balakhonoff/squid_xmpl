@@ -18,8 +18,8 @@ const processor = new EvmBatchProcessor()
 
     archive: 'https://eth.archive.subsquid.io',
   })
-  .setBlockRange({ from: 15175243 })
-  .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
+  .setBlockRange({ from: 16304017 })
+  .addLog('0x4Fabb145d64652a948d72533023f6E7A623C7C53', {
     filter: [[
       events.Approval.topic,
       events.Transfer.topic,
@@ -71,7 +71,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
     const oldBalances = await ctx.store
         .findBy(Balance, {id: In([...balanceUpdates.keys()])})
-    
+
     // join new and old balances
     oldBalances.forEach((b) => {
       const balanceUpdate =  balanceUpdates.get(b.id) ?? 0n
@@ -79,7 +79,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
     })
 
     const newBalances = Array.from(balanceUpdates.keys()).map((id) => new Balance({id, value: balanceUpdates.get(id)}))
-    
+
     await ctx.store.save(approvals)
     await ctx.store.save(transfers)
     await ctx.store.save(newBalances)
